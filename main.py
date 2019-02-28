@@ -20,6 +20,6 @@ if __name__ == '__main__':
     features = list(set(df_train.columns) - set(remove_cols))
 
     model.train_lgbm_fold_classif(df_train, df_test, features, df_target,
-                                  repeat_cv=1, n_splits=2,
+                                  repeat_cv=1, n_splits=4,
                                   n_max_estimators=1000
                                   )
