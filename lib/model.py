@@ -12,43 +12,35 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.feature_selection import SelectFromModel
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, roc_auc_score
 from sklearn.tree import DecisionTreeRegressor
 
 import lightgbm as lgb
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.metrics import mean_squared_error
+
+from lib.constants import TMP_FOLDER
 
 import matplotlib.pyplot as plt
 
-def train_lgbm_fold(df, df_test, features, df_target,
-                    repeat_cv=1, n_splits=5, n_max_estimators=10000,
-                   verbose_round=100):
+def train_lgbm_fold_classif(df, df_test, features, df_target,
+                            repeat_cv=1, n_splits=5, n_max_estimators=10000,
+                            verbose_round=100,
+                            write=True
+                            ):
 
     print('== INIT')
 
     params = {
         'class_weights': None,
         'boosting_type': 'gbdt',
-        'objective': 'regression',
-        'metric': 'rmse',
-        'max_depth': 5,
-        'learning_rate': 0.01,
-        'verbose': 0,
-        'colsample_bytree': 0.9,
-        'min_child_samples': 20,
-        'min_split_gain': 0.01,
-        'reg_alpha': 0.01,
-        'reg_lambda': 0.01,
-        'subsample': 0.9,
-        'subsample_freq': 1,
-        'subsample_for_bin': 200000,
-        'early_stopping_round': 100,
-        'n_estimators': n_max_estimators
+        'objective': 'binary',
+        'metric': 'auc',
+        #'max_depth': 5,
     }
 
     X = df[features].values
-    y = df_target.values
+    y = df_target.values.ravel()
 
     importances = pd.DataFrame()
     models = []
@@ -58,41 +50,68 @@ def train_lgbm_fold(df, df_test, features, df_target,
     df_preds = pd.DataFrame(np.zeros((len(df_test), repeat_cv)))
     for i in range(repeat_cv):
         print("== REPEAT CV", i)
-        preds = y.copy()
-        kfold = KFold(n_splits = n_splits, shuffle = True, random_state = i)
-        rmse_list = []
-        cv_index=0
-        for fold, (train_index, val_index) in enumerate(kfold.split(X,y)):
+        oof_preds = y.copy()
+        train_preds = y.copy()
+        #kfold = KFold(n_splits=n_splits, shuffle=True, random_state=i)
+        kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=i)
+        for fold, (train_index, val_index) in enumerate(kfold.split(X, y)):
             print("==== CV", fold)
-            trn_x, trn_y = X[train_index], y[train_index]
-            val_x, val_y = X[val_index], y[val_index]
-            model = lgb.LGBMRegressor(**params)
-            model.fit(
-                trn_x, trn_y,
-                eval_set=[(trn_x, trn_y), (val_x, val_y)],
-                verbose=verbose_round
-            )
-            preds[val_index] = model.predict(X[val_index],
-                                             num_iteration=model.best_iteration_)
-            rmse = np.sqrt(mean_squared_error(y[val_index], preds[val_index]))
-            rmse_list.append(rmse)
-            cv_index=cv_index+1
+            trn_data = lgb.Dataset(X[train_index], label=y[train_index])
+            val_data = lgb.Dataset(X[val_index], label=y[val_index])
+            model = lgb.train(
+                params,
+                trn_data,
+                n_max_estimators,
+                valid_sets=[trn_data, val_data],
+                verbose_eval=verbose_round,
+                early_stopping_rounds=100)
 
-            df_preds[i] += model.predict(df_test[features]) / n_splits
+            oof_preds[val_index] = model.predict(X[val_index],
+                                                 num_iteration=model.best_iteration)
+
+            train_preds[train_index] = model.predict(X[train_index],
+                                                     num_iteration=model.best_iteration)
+
+            print("FOLD Mean oof preds:",
+                  oof_preds[val_index].mean(),
+                  oof_preds[val_index].max()
+                  )
+            print("FOLD Mean train preds:",
+                  train_preds[val_index].mean(),
+                  train_preds[val_index].max()
+                  )
+
+            df_preds[i] += model.predict(df_test[features],
+                                         num_iteration=model.best_iteration) / n_splits
+
+            print("FOLD mean test preds:", df_preds[i].mean())
 
             imp_df = pd.DataFrame()
             imp_df['feature'] = features
-            imp_df['gain'] = model.feature_importances_
+            imp_df['gain'] = model.feature_importance()
             imp_df['model'] = i
             imp_df['fold'] = fold
             importances = pd.concat([importances, imp_df], axis=0, sort=False)
 
             models.append(model)
 
-        rmse_cv = np.mean(rmse_list)
+        cv_score = roc_auc_score(y, oof_preds)
+        tr_score = roc_auc_score(y, train_preds)
 
-        print("RMSE:", rmse_cv)
-        df_oof_preds[i] = preds
+        print("Mean oof preds:", oof_preds.mean())
+        print("Mean train preds:", train_preds.mean())
+        print("Mean test preds, first repeat cv", df_preds[0].mean())
+
+        print("REPEAT CV:", i, "CV SCORE:", cv_score, "TR SCORE", tr_score)
+        df_oof_preds[i] = oof_preds
+
+        if write:
+            cv_score_str = "CV_{:<7.5f}".format(cv_score)
+            tr_score_str = "TR_{:<7.5f}".format(tr_score)
+            filename = 'lgbm_classif_' + cv_score_str + '_' + tr_score_str + '.hdf'
+            df_preds[i].to_hdf(TMP_FOLDER + 'preds_' + filename, 'df')
+            df_preds[i].to_csv(TMP_FOLDER + 'preds_' + filename + '.csv', index=False)
+            df_oof_preds[i].to_hdf(TMP_FOLDER + 'oof_' + filename, 'df')
 
     return models, importances, df_oof_preds, df_preds
 
@@ -109,15 +128,3 @@ def plot_importances(importances_, num_features=2000):
     plt.show()
 
     return data_imp
-
-def make_predictions(df, features, models):
-    list_preds = []
-    df['pred_mean'] = 0
-    for index, model in enumerate(models):
-        pred_name = 'model_' + str(index)
-        df[pred_name] = model.predict(df[features], num_iteration=model.best_iteration_)
-        list_preds.append(pred_name)
-        df['pred_mean'] = df['pred_mean'] + df[pred_name]
-    df['pred_mean'] = df['pred_mean'] / len(models)
-
-    return df, list_preds

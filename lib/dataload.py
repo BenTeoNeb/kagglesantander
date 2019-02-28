@@ -92,25 +92,33 @@ def impute_from_key(data, col_to_impute, key, verbose=False):
         )
     return data
 
-def dummy():
-    print("Hello you too tooaaaa")
 
-def load_data(write=True, read=False):
+def load_data(write=True, read=False, reduce_mem=True):
     """
     Load Data
     """
     if read:
         print("... Reading ...")
-        df_train = reduce_mem_usage(pd.read_hdf(TMP_FOLDER + "df_train.hdf", key="df"))
-        df_target = reduce_mem_usage(pd.read_hdf(TMP_FOLDER + "df_target.hdf", key="df"))
-        df_test = reduce_mem_usage(pd.read_hdf(TMP_FOLDER + "df_test.hdf", key="df"))
+        df_train = pd.read_hdf(TMP_FOLDER + "df_train.hdf", key="df")
+        df_target = pd.read_hdf(TMP_FOLDER + "df_target.hdf", key="df")
+        df_test = pd.read_hdf(TMP_FOLDER + "df_test.hdf", key="df")
+        if reduce_mem:
+            df_train = reduce_mem_usage(df_train)
+            df_target = reduce_mem_usage(df_target)
+            df_test = reduce_mem_usage(df_test)
+
     else:
         print("-- Train data")
-        df_train = reduce_mem_usage(pd.read_csv(DATA_FOLDER + "train.csv"))
+        df_train = pd.read_csv(DATA_FOLDER + "train.csv")
         df_target = pd.DataFrame(df_train["target"])
 
         print("-- Test data")
-        df_test = reduce_mem_usage(pd.read_csv(DATA_FOLDER + "test.csv"))
+        df_test = pd.read_csv(DATA_FOLDER + "test.csv")
+
+        if reduce_mem:
+            df_train = reduce_mem_usage(df_train)
+            df_test = reduce_mem_usage(df_test)
+            df_target = reduce_mem_usage(df_target)
 
         if write:
             print("... Writing ...")
