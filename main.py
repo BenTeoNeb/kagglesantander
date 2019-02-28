@@ -2,18 +2,14 @@
 Main program
 """
 # Standard import below
-import pandas as pd
-import lightgbm as lgb
-import seaborn as sns
-
 from lib.utils import force_import
 
 #Custom modules to import
 dataload = force_import('lib.dataload')
 model = force_import('lib.model')
+utils = force_import('lib.utils')
 
 if __name__ == '__main__':
-    print("LGB Version", lgb.__version__)
     df_train, df_target, df_test = dataload.load_data(read=True, reduce_mem=False)
 
     remove_cols = ['target', 'ID_code']
@@ -23,3 +19,5 @@ if __name__ == '__main__':
                                   repeat_cv=1, n_splits=4,
                                   n_max_estimators=1000
                                   )
+
+    utils.make_submission_from_hdf('preds_lgbm_classif_CV_0.88763_TR_0.98783')
