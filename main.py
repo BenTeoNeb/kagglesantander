@@ -1,12 +1,16 @@
-from lib import func_AA
+"""
+Main program
+"""
+# Standard import below
+import pandas as pd
 
-func_AA.hello()
+from lib.utils import force_import
 
-## Load data
-from dataload import load_elo_data
+#Custom modules to import
+dataload = force_import('lib.dataload')
+model = force_import('lib.model')
 
-df_train, df_target, df_test, df_merchants, df_transactions = load_elo_data(
-    DATA_FOLDER, load_everything=True
-)
+if __name__ == '__main__':
+    df_train, df_target, df_test = dataload.load_data(read=True)
 
-df = df2(df.stuff(1).stuff(2))
+    df_train.head()

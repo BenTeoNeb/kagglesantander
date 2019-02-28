@@ -5,6 +5,7 @@ Missing data handling
 
 import pandas as pd  # data processing, CSV file I/O (e.g. pd.read_csv)
 import numpy as np
+from lib.constants import DATA_FOLDER, TMP_FOLDER
 
 
 def reduce_mem_usage(df, verbose=True):
@@ -91,100 +92,30 @@ def impute_from_key(data, col_to_impute, key, verbose=False):
         )
     return data
 
+def dummy():
+    print("Hello you too tooaaaa")
 
-def load_elo_data(data_folder, load_everything=False, write=True, read=False):
+def load_data(write=True, read=False):
     """
-    Load ELO data
+    Load Data
     """
     if read:
         print("... Reading ...")
-        df_train = reduce_mem_usage(pd.read_hdf(data_folder + "df_train.hdf", key="df"))
-        df_test = reduce_mem_usage(pd.read_hdf(data_folder + "df_test.hdf", key="df"))
-        df_target = pd.read_hdf(data_folder + "df_target.hdf", key="df")
-        df_merchants = pd.read_hdf(data_folder + "df_merchants.hdf", key="df")
-        df_transactions = reduce_mem_usage(
-            pd.read_hdf(data_folder + "df_transactions.hdf", key="df")
-        )
+        df_train = reduce_mem_usage(pd.read_hdf(TMP_FOLDER + "df_train.hdf", key="df"))
+        df_target = reduce_mem_usage(pd.read_hdf(TMP_FOLDER + "df_target.hdf", key="df"))
+        df_test = reduce_mem_usage(pd.read_hdf(TMP_FOLDER + "df_test.hdf", key="df"))
     else:
-        df_header = pd.read_excel(data_folder + "Data_Dictionary.xlsx")
-        display(df_header.head(len(df_header)))
-
         print("-- Train data")
-        df_train = reduce_mem_usage(pd.read_csv(data_folder + "train.csv"))
+        df_train = reduce_mem_usage(pd.read_csv(DATA_FOLDER + "train.csv"))
         df_target = pd.DataFrame(df_train["target"])
 
         print("-- Test data")
-        df_test = reduce_mem_usage(pd.read_csv(data_folder + "test.csv"))
-        df_test["first_active_month"] = df_test["first_active_month"].fillna(
-            value=df_test["first_active_month"].value_counts().index[0]
-        )
-
-        print("-- Merchants")
-        df_merchants = reduce_mem_usage(pd.read_csv(data_folder + "merchants.csv"))
-        # df_merchants['category_2'].fillna(6.0, inplace=True)
-        # df_merchants.fillna(0, inplace=True)
-
-        print("-- Transactions")
-        df_transactions = reduce_mem_usage(
-            pd.read_csv(data_folder + "new_merchant_transactions.csv")
-        )
-        df_transactions["source"] = 0
-        if load_everything:
-            df_all_transactions = reduce_mem_usage(
-                pd.read_csv(data_folder + "historical_transactions.csv")
-            )
-            df_all_transactions["source"] = 1
-            df_transactions = pd.concat([df_transactions, df_all_transactions])
-        # Missing data
-        # Impute merchants
-        key = [
-            "card_id",
-            "city_id",
-            "category_1",
-            "installments",
-            "category_3",
-            "merchant_category_id",
-            "category_2",
-            "state_id",
-            "subsector_id",
-        ]
-        df_transactions = impute_from_key(
-            df_transactions, "merchant_id", key, verbose=True
-        )
-        # Fill what is possible from merchants for category_2
-        buf = df_transactions.merge(
-            df_merchants[["merchant_id", "category_2"]], on=["merchant_id"]
-        )
-        df_transactions["category_2"] = buf["category_2_x"].combine_first(
-            buf["category_2_y"]
-        )
-        df_transactions["category_2"].fillna(6.0, inplace=True)
-        # New category for category_3
-        df_transactions["category_3"].fillna("D", inplace=True)
-        # Re-impute merchants
-        key = [
-            "card_id",
-            "city_id",
-            "category_1",
-            "installments",
-            "category_3",
-            "merchant_category_id",
-            "category_2",
-            "state_id",
-            "subsector_id",
-        ]
-        df_transactions = impute_from_key(
-            df_transactions, "merchant_id", key, verbose=True
-        )
-        # Deal with other merchants
-        df_transactions["merchant_id"].fillna("M_ID_UNKNOWN", inplace=True)
+        df_test = reduce_mem_usage(pd.read_csv(DATA_FOLDER + "test.csv"))
 
         if write:
             print("... Writing ...")
-            df_train.to_hdf(data_folder + "df_train.hdf", "df")
-            df_test.to_hdf(data_folder + "df_test.hdf", "df")
-            df_target.to_hdf(data_folder + "df_target.hdf", "df")
-            df_merchants.to_hdf(data_folder + "df_merchants.hdf", "df")
-            df_transactions.to_hdf(data_folder + "df_transactions.hdf", "df")
-
-    return df_train, df_target, df_test, df_merchants, df_transactions
+            df_train.to_hdf(TMP_FOLDER + "df_train.hdf", "df")
+            df_test.to_hdf(TMP_FOLDER + "df_test.hdf", "df")
+            df_target.to_hdf(TMP_FOLDER + "df_target.hdf", "df")
+    print("-- Done")
+    return df_train, df_target, df_test

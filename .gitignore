@@ -1,4 +1,5 @@
 */.ipynb_checkpoints/*
 .ipynb_checkpoints
 data
+data_tmp
 __pycache__
