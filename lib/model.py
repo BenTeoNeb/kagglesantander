@@ -32,18 +32,15 @@ def train_lgbm_fold_classif(df, df_test, features, df_target,
     print('== INIT')
 
     params = {
-        'class_weights': None,
         'boosting_type': 'gbdt',
         'objective': 'binary',
         'metric': 'auc',
-        #'max_depth': 5,
     }
 
     X = df[features].values
     y = df_target.values.ravel()
 
     importances = pd.DataFrame()
-    models = []
 
     print('== START MODEL TRAIN')
     df_oof_preds = pd.DataFrame(np.zeros((len(df), repeat_cv)))
@@ -93,8 +90,6 @@ def train_lgbm_fold_classif(df, df_test, features, df_target,
             imp_df['fold'] = fold
             importances = pd.concat([importances, imp_df], axis=0, sort=False)
 
-            models.append(model)
-
         cv_score = roc_auc_score(y, oof_preds)
         tr_score = roc_auc_score(y, train_preds)
 
@@ -113,7 +108,7 @@ def train_lgbm_fold_classif(df, df_test, features, df_target,
             df_preds[i].to_csv(TMP_FOLDER + 'preds_' + filename + '.csv', index=False)
             df_oof_preds[i].to_hdf(TMP_FOLDER + 'oof_' + filename, 'df')
 
-    return models, importances, df_oof_preds, df_preds
+    return importances, df_oof_preds, df_preds
 
 def plot_importances(importances_, num_features=2000):
     mean_gain = importances_[['gain', 'feature']].groupby('feature').mean()
