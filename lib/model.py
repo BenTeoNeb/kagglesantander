@@ -20,6 +20,7 @@ from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.metrics import mean_squared_error
 
 import seaborn as sns
+import json
 from lib.constants import TMP_FOLDER
 
 import matplotlib.pyplot as plt
@@ -30,13 +31,53 @@ def train_lgbm_fold_classif(df, df_test, features, df_target,
                             write=True
                             ):
 
-    print('== INIT')
+    print('== INIT ==')
 
     params = {
         'boosting_type': 'gbdt',
         'objective': 'binary',
         'metric': 'auc',
-    }
+        'bagging_fraction': 0.5919630103966947,
+        'bagging_freq': 4,
+        'feature_fraction': 0.7482831185653955,
+        'lambda_l1': 0.14085228532750096,
+        'lambda_l2': 0.5484258671438155,
+        'max_bin': 285,
+        'max_depth': 2,
+        'min_data_in_leaf': 49,
+        'num_leaves': 2,
+        'learning_rate': 0.1
+        }
+    params = {
+        'boosting_type': 'gbdt',
+        'objective': 'binary',
+        'metric': 'auc',
+        'bagging_fraction': 0.8559810628748616,
+        'bagging_freq': 40,
+        'feature_fraction': 0.5007475282515805,
+        'lambda_l1': 0.8838329545574001,
+        'lambda_l2': 0.011652675357265607,
+        'max_bin': 241,
+        'max_depth': 10,
+        'min_data_in_leaf': 55,
+        'num_leaves': 2,
+        'learning_rate': 0.05
+        }
+    params = {
+        'boosting_type': 'gbdt',
+        'objective': 'binary',
+        'metric': 'auc',
+        'bagging_fraction': 0.5152176302473519,
+        'bagging_freq': 72,
+        'feature_fraction': 0.5187053325849631,
+        'lambda_l1': 0.6835775824393563,
+        'lambda_l2': 0.3102783166293553,
+        'max_bin': 204,
+        'max_depth': 2,
+        'min_data_in_leaf': 40,
+        'num_leaves': 2,
+        'learning_rate': 0.05
+        }
 
     X = df[features].values
     y = df_target.values.ravel()
@@ -86,14 +127,18 @@ def train_lgbm_fold_classif(df, df_test, features, df_target,
         print("REPEAT CV:", i, "CV SCORE:", cv_score, "TR SCORE", tr_score)
         df_oof_preds[i] = oof_preds
 
+        filename = None
         if write:
             cv_score_str = "CV_{:<7.5f}".format(cv_score)
             tr_score_str = "TR_{:<7.5f}".format(tr_score)
-            filename = 'lgbm_classif_' + cv_score_str + '_' + tr_score_str + '.hdf'
+            root_filename = 'lgbm_classif_' + cv_score_str + '_' + tr_score_str
+            filename = root_filename + '.hdf'
             df_preds[i].to_hdf(TMP_FOLDER + 'preds_' + filename, 'df')
             df_oof_preds[i].to_hdf(TMP_FOLDER + 'oof_' + filename, 'df')
+            with open(TMP_FOLDER + root_filename + '_params.json', 'w') as outfile:
+                json.dump(params, outfile)
 
-    return importances, df_oof_preds, df_preds
+    return importances, df_oof_preds, df_preds, filename
 
 def plot_importances(importances_, num_features=2000):
     mean_gain = importances_[['gain', 'feature']].groupby('feature').mean()

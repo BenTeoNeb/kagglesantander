@@ -7,13 +7,20 @@ import pandas as pd
 
 from lib.constants import TMP_FOLDER, DATA_FOLDER, SUBMISSION_FOLDER
 
-def make_submission_from_hdf(filename):
+def make_submission_from_hdf(filename, index=None):
     """
     Format a submission file from a hdf file
     """
 
-    submission = pd.read_csv(DATA_FOLDER + 'sample_submission.csv')
-    submission['target'] = pd.read_hdf(TMP_FOLDER + filename + '.hdf', key='df')
+    df_preds = pd.read_hdf(TMP_FOLDER + filename + '.hdf', key='df')
+
+    if index:
+        submission = (
+            df_preds.merge(index.reset_index(), on=df_preds.index)[['ID_code', 0]]
+            .rename(columns={0:'target'}))
+    else:
+        submission = pd.read_csv(DATA_FOLDER + 'sample_submission.csv')
+        submission['target'] = df_preds
     submission.to_csv(SUBMISSION_FOLDER + filename + '.csv', index=False)
 
     return submission

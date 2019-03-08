@@ -6,7 +6,8 @@ https://www.kaggle.com/c/elo-merchant-category-recommendation/discussion/77537
 * Measure difference between feature importance on model and feature importance when model is fitted to noise
 https://www.kaggle.com/ogrellier/feature-selection-with-null-importances
 https://academic.oup.com/bioinformatics/article/26/10/1340/193348
-* Adversarial feature selection
+* Adversarial feature selection: drop features that classifies appartenance to train/test
+* Train row selection: how to select a subset of rows from the train that is most representative of test
 """
 # Code dump
 
