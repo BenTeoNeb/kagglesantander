@@ -14,9 +14,9 @@ def make_submission_from_hdf(filename, index=None):
 
     df_preds = pd.read_hdf(TMP_FOLDER + filename + '.hdf', key='df')
 
-    if index:
+    if index is not None:
         submission = (
-            df_preds.merge(index.reset_index(), on=df_preds.index)[['ID_code', 0]]
+            pd.DataFrame(df_preds).merge(index.reset_index(), on=df_preds.index)[['ID_code', 0]]
             .rename(columns={0:'target'}))
     else:
         submission = pd.read_csv(DATA_FOLDER + 'sample_submission.csv')

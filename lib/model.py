@@ -132,13 +132,14 @@ def train_lgbm_fold_classif(df, df_test, features, df_target,
             cv_score_str = "CV_{:<7.5f}".format(cv_score)
             tr_score_str = "TR_{:<7.5f}".format(tr_score)
             root_filename = 'lgbm_classif_' + cv_score_str + '_' + tr_score_str
+            pred_root_filename = 'preds_' + root_filename
             filename = root_filename + '.hdf'
             df_preds[i].to_hdf(TMP_FOLDER + 'preds_' + filename, 'df')
             df_oof_preds[i].to_hdf(TMP_FOLDER + 'oof_' + filename, 'df')
             with open(TMP_FOLDER + root_filename + '_params.json', 'w') as outfile:
                 json.dump(params, outfile)
 
-    return importances, df_oof_preds, df_preds, filename
+    return importances, df_oof_preds, df_preds, pred_root_filename
 
 def plot_importances(importances_, num_features=2000):
     mean_gain = importances_[['gain', 'feature']].groupby('feature').mean()
