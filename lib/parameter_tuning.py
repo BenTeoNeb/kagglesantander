@@ -102,12 +102,12 @@ def find_optimal_params(max_evals=1000, write=True):
     param_space = {
         'num_leaves': hp.quniform('num_leaves', 2, 50, 1),
         'max_depth': hp.quniform('max_depth', 2, 10, 1),
-        'min_data_in_leaf': hp.quniform('min_data_in_leaf', 20, 100, 1),
+        'min_data_in_leaf': hp.quniform('min_data_in_leaf', 1, 100, 1),
         'max_bin': hp.quniform('max_bin', 200, 300, 1),
         'lambda_l1': hp.uniform('lambda_l1', 0, 1),
         'lambda_l2': hp.uniform('lambda_l2', 0, 1),
-        'feature_fraction': hp.uniform('feature_fraction', 0.5, 1.0),
-        'bagging_fraction': hp.uniform('bagging_fraction', 0.5, 1.0),
+        'feature_fraction': hp.uniform('feature_fraction', 0.0, 1.0),
+        'bagging_fraction': hp.uniform('bagging_fraction', 0.0, 1.0),
         'bagging_freq': hp.quniform('bagging_freq', 1, 100, 2)
     }
     trials = Trials()
