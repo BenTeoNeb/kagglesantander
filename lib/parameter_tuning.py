@@ -76,7 +76,7 @@ def objective_func(args):
 
     params = params_helper(args)
 
-    df_train, df_target, _ = dataload.load_data(read=True, reduce_mem=False)
+    df_train, df_target, _ = dataload.load_data(read=True, reduce_mem=False, features=True)
 
     remove_cols = ['target', 'ID_code']
     features = list(set(df_train.columns) - set(remove_cols))
@@ -84,7 +84,12 @@ def objective_func(args):
     x = df_train[features].values
     y = df_target['target'].values
 
-    cv_score, tr_score = cross_val_score_lgb(x, y.ravel(), params)
+    cv_score, tr_score = cross_val_score_lgb(
+        x,
+        y.ravel(),
+        params,
+        n_splits=3
+        )
 
     # Base loss on cross val score and
     # penalize loss with spread between cv and tr, to avoid overfitting
@@ -92,6 +97,7 @@ def objective_func(args):
 
     print('======================')
     print('params:', params)
+    #print('splits:', args['splits'])
     print('loss:' + str(loss))
     print('auc:' + str(cv_score) + ' ' + str(tr_score))
     print('======================')
@@ -103,7 +109,7 @@ def find_optimal_params(max_evals=1000, write=True):
         'num_leaves': hp.quniform('num_leaves', 2, 50, 1),
         'max_depth': hp.quniform('max_depth', 2, 10, 1),
         'min_data_in_leaf': hp.quniform('min_data_in_leaf', 1, 100, 1),
-        'max_bin': hp.quniform('max_bin', 200, 300, 1),
+        'max_bin': hp.quniform('max_bin', 100, 300, 1),
         'lambda_l1': hp.uniform('lambda_l1', 0, 1),
         'lambda_l2': hp.uniform('lambda_l2', 0, 1),
         'feature_fraction': hp.uniform('feature_fraction', 0.0, 1.0),

@@ -26,75 +26,65 @@ from lib.constants import TMP_FOLDER
 import matplotlib.pyplot as plt
 
 def train_lgbm_fold_classif(df, df_test, features, df_target,
-                            repeat_cv=1, n_splits=5, n_max_estimators=10000,
+                            df_stratify,
+                            keep_index=np.array([]),
+                            repeat_cv=1, n_splits=5,
+                            n_max_estimators=10000,
                             verbose_round=100,
                             write=True
                             ):
 
     print('== INIT ==')
-
+    """
     params = {
         'boosting_type': 'gbdt',
         'objective': 'binary',
         'metric': 'auc',
-        'bagging_fraction': 0.5919630103966947,
-        'bagging_freq': 4,
         'feature_fraction': 0.7482831185653955,
-        'lambda_l1': 0.14085228532750096,
-        'lambda_l2': 0.5484258671438155,
         'max_bin': 285,
-        'max_depth': 2,
+        'max_depth': 4,
         'min_data_in_leaf': 49,
-        'num_leaves': 2,
+        'num_leaves': 4,
         'learning_rate': 0.1
         }
+    """
     params = {
         'boosting_type': 'gbdt',
         'objective': 'binary',
         'metric': 'auc',
-        'bagging_fraction': 0.8559810628748616,
-        'bagging_freq': 40,
-        'feature_fraction': 0.5007475282515805,
-        'lambda_l1': 0.8838329545574001,
-        'lambda_l2': 0.011652675357265607,
-        'max_bin': 241,
-        'max_depth': 10,
-        'min_data_in_leaf': 55,
-        'num_leaves': 2,
-        'learning_rate': 0.05
-        }
-    params = {
-        'boosting_type': 'gbdt',
-        'objective': 'binary',
-        'metric': 'auc',
-        'bagging_fraction': 0.5152176302473519,
+        'bagging_fraction': 0.6,
         'bagging_freq': 72,
-        'feature_fraction': 0.5187053325849631,
+        'feature_fraction': 0.75,
         'lambda_l1': 0.6835775824393563,
         'lambda_l2': 0.3102783166293553,
         'max_bin': 204,
-        'max_depth': 2,
+        'max_depth': 3,
         'min_data_in_leaf': 40,
         'num_leaves': 2,
         'learning_rate': 0.05
         }
 
+
     X = df[features].values
     y = df_target.values.ravel()
+    strat = df_stratify.values.ravel()
 
     importances = pd.DataFrame()
 
     print('== START MODEL TRAIN')
     df_oof_preds = pd.DataFrame(np.zeros((len(df), repeat_cv)))
     df_preds = pd.DataFrame(np.zeros((len(df_test), repeat_cv)))
+    models = []
     for i in range(repeat_cv):
         print("== REPEAT CV", i)
         oof_preds = y.copy().astype('float')
         train_preds = y.copy().astype('float')
         #kfold = KFold(n_splits=n_splits, shuffle=True, random_state=i)
         kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=i)
-        for fold, (train_index, val_index) in enumerate(kfold.split(X, y)):
+        for fold, (train_index, val_index) in enumerate(kfold.split(X, strat)):
             print("==== CV", fold)
+            #train_index = np.unique(np.concatenate([train_index, keep_index]))
+
             trn_data = lgb.Dataset(X[train_index], label=y[train_index])
             val_data = lgb.Dataset(X[val_index], label=y[val_index])
             model = lgb.train(
@@ -105,12 +95,15 @@ def train_lgbm_fold_classif(df, df_test, features, df_target,
                 verbose_eval=verbose_round,
                 early_stopping_rounds=100)
 
+            models.append(model)
+
             oof_preds[val_index] = model.predict(X[val_index],
                                                  num_iteration=model.best_iteration)
 
             train_preds[train_index] = model.predict(X[train_index],
                                                      num_iteration=model.best_iteration)
 
+            # Idea: use min/max instead of mean
             df_preds[i] += model.predict(df_test[features],
                                          num_iteration=model.best_iteration) / n_splits
 
@@ -139,7 +132,84 @@ def train_lgbm_fold_classif(df, df_test, features, df_target,
             with open(TMP_FOLDER + root_filename + '_params.json', 'w') as outfile:
                 json.dump(params, outfile)
 
-    return importances, df_oof_preds, df_preds, pred_root_filename
+    return importances, df_oof_preds, df_preds, pred_root_filename, models
+
+
+def train_lgbm_fold_reg(df, df_test, features, df_target,
+                    repeat_cv=1, n_splits=5, n_max_estimators=10000,
+                    verbose_round=100):
+
+    print("== INIT REG ==")
+
+    params = {
+        "class_weights": None,
+        "boosting_type": "gbdt",
+        "objective": "regression",
+        "metric": "rmse",
+        "max_depth": 5,
+        "learning_rate": 0.01,
+        "verbose": 0,
+        "colsample_bytree": 0.9,
+        "min_child_samples": 20,
+        "min_split_gain": 0.01,
+        "reg_alpha": 0.01,
+        "reg_lambda": 0.01,
+        "subsample": 0.9,
+        "subsample_freq": 1,
+        "subsample_for_bin": 200000,
+        "early_stopping_round": 100,
+        "n_estimators": n_max_estimators,
+    }
+
+    X = df[features].values
+    y = df_target.values.ravel()
+
+    importances = pd.DataFrame()
+
+    print('== START MODEL TRAIN')
+    df_oof_preds = pd.DataFrame(np.zeros((len(df), repeat_cv)))
+    df_preds = pd.DataFrame(np.zeros((len(df_test), repeat_cv)))
+    for i in range(repeat_cv):
+        print("== REPEAT CV", i)
+        oof_preds = y.copy().astype('float')
+        train_preds = y.copy().astype('float')
+        kfold = KFold(n_splits=n_splits, shuffle=True, random_state=i)
+        #kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=i)
+        for fold, (train_index, val_index) in enumerate(kfold.split(X, y)):
+            print("==== CV", fold)
+            trn_data = lgb.Dataset(X[train_index], label=y[train_index])
+            val_data = lgb.Dataset(X[val_index], label=y[val_index])
+            model = lgb.train(
+                params,
+                trn_data,
+                n_max_estimators,
+                valid_sets=[trn_data, val_data],
+                verbose_eval=verbose_round,
+                early_stopping_rounds=100)
+
+            oof_preds[val_index] = model.predict(X[val_index],
+                                                 num_iteration=model.best_iteration)
+
+            train_preds[train_index] = model.predict(X[train_index],
+                                                     num_iteration=model.best_iteration)
+
+            df_preds[i] += model.predict(df_test[features],
+                                         num_iteration=model.best_iteration) / n_splits
+
+            imp_df = pd.DataFrame()
+            imp_df['feature'] = features
+            imp_df['gain'] = model.feature_importance()
+            imp_df['model'] = i
+            imp_df['fold'] = fold
+            importances = pd.concat([importances, imp_df], axis=0, sort=False)
+
+        cv_score = mean_squared_error(y, oof_preds)
+        tr_score = mean_squared_error(y, train_preds)
+
+        print("REPEAT CV:", i, "CV SCORE:", cv_score, "TR SCORE", tr_score)
+        df_oof_preds[i] = oof_preds
+
+    return importances, df_oof_preds, df_preds
 
 def plot_importances(importances_, num_features=2000):
     mean_gain = importances_[['gain', 'feature']].groupby('feature').mean()

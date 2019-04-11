@@ -93,15 +93,20 @@ def impute_from_key(data, col_to_impute, key, verbose=False):
     return data
 
 
-def load_data(write=True, read=False, reduce_mem=True):
+def load_data(write=True, read=False, reduce_mem=True, features=False):
     """
     Load Data
     """
     if read:
         print("... Reading ...")
-        df_train = pd.read_hdf(TMP_FOLDER + "df_train.hdf", key="df")
-        df_target = pd.read_hdf(TMP_FOLDER + "df_target.hdf", key="df")
-        df_test = pd.read_hdf(TMP_FOLDER + "df_test.hdf", key="df")
+        if features:
+            df_train = pd.read_hdf(TMP_FOLDER + "df_train_fe.hdf", key="df")
+            df_target = pd.read_hdf(TMP_FOLDER + "df_target_fe.hdf", key="df")
+            df_test = pd.read_hdf(TMP_FOLDER + "df_test_fe.hdf", key="df")
+        else:
+            df_train = pd.read_hdf(TMP_FOLDER + "df_train.hdf", key="df")
+            df_target = pd.read_hdf(TMP_FOLDER + "df_target.hdf", key="df")
+            df_test = pd.read_hdf(TMP_FOLDER + "df_test.hdf", key="df")
         if reduce_mem:
             df_train = reduce_mem_usage(df_train)
             df_target = reduce_mem_usage(df_target)
